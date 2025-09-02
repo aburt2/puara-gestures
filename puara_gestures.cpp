@@ -9,7 +9,7 @@
 #include "puara_gestures.h"
 
 void PuaraGestures::updateInertialGestures() {
-  updateJabShake();
+  updateJabShakeAccl();
   updateOrientation();
 }
 
@@ -51,24 +51,99 @@ void PuaraGestures::updateJabShake() {
       }
   }
   // Instrument jab
-  if (*maxX-*minX > PuaraGestures::jabThreshold) {
+  if (*maxX-*minX > PuaraGestures::jabXThreshold) {
     if (*maxX >= 0 && *minX >= 0) {
       PuaraGestures::jabX = *maxX - *minX;
     } else if (*maxX < 0 && *minX < 0) {
       PuaraGestures::jabX = *minX - *maxX;
     } else {
-    PuaraGestures::jabX = 0;
+    PuaraGestures::jabX = *maxX - *minX;
     }
   }
-  if (*maxY-*minY > 10) {
-    PuaraGestures::jabY = *maxY - *minY;
-  } else {
-    PuaraGestures::jabY = 0;
+  if (*maxY-*minY > PuaraGestures::jabYThreshold) {
+    if (*maxY >= 0 && *minY >= 0) {
+      PuaraGestures::jabX = *maxY - *minY;
+    } else if (*maxY < 0 && *minY < 0) {
+      PuaraGestures::jabX = *minY - *maxY;
+    } else {
+    PuaraGestures::jabY = *maxX - *minX;
+    }
   }
-  if (*maxZ-*minZ > 10) {
-    PuaraGestures::jabZ = *maxZ - *minZ;
+  if (*maxZ-*minZ > PuaraGestures::jabZThreshold) {
+    if (*maxZ >= 0 && *minZ >= 0) {
+      PuaraGestures::jabZ = *maxZ - *minZ;
+    } else if (*maxZ < 0 && *minZ < 0) {
+      PuaraGestures::jabZ = *minZ - *maxZ;
+    } else {
+    PuaraGestures::jabZ = *maxX - *minX;
+    }
+  }
+}
+
+void PuaraGestures::updateJabShakeAccl() {
+  std::deque<float>::iterator minX = std::min_element(acclBuffers[0].begin(), acclBuffers[0].end());
+  std::deque<float>::iterator maxX = std::max_element(acclBuffers[0].begin(), acclBuffers[0].end());
+  std::deque<float>::iterator minY = std::min_element(acclBuffers[1].begin(), acclBuffers[1].end());
+  std::deque<float>::iterator maxY = std::max_element(acclBuffers[1].begin(), acclBuffers[1].end());
+  std::deque<float>::iterator minZ = std::min_element(acclBuffers[2].begin(), acclBuffers[2].end());
+  std::deque<float>::iterator maxZ = std::max_element(acclBuffers[2].begin(), acclBuffers[2].end());
+
+  float acclAbsX = std::abs(acclBuffers[0].back());
+  float acclAbsY = std::abs(acclBuffers[1].back());
+  float acclAbsZ = std::abs(acclBuffers[2].back());
+    
+  // Instrument shake
+  if (acclAbsX > 0.1) {
+    PuaraGestures::shakeX = leakyIntegrator(acclAbsX/10, PuaraGestures::shakeX, 0.6, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerX);
   } else {
-    PuaraGestures::jabZ = 0;
+    PuaraGestures::shakeX = leakyIntegrator(0, PuaraGestures::shakeX, 0.3, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerX);
+    if (PuaraGestures::shakeX < 0.01) {
+        PuaraGestures::shakeX = 0;
+      }
+  }
+  if (acclAbsY > 0.1) {
+    PuaraGestures::shakeY = leakyIntegrator(acclAbsY/10, PuaraGestures::shakeY, 0.6, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerY);
+  } else {
+    PuaraGestures::shakeY = leakyIntegrator(0, PuaraGestures::shakeY, 0.3, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerY);
+    if (PuaraGestures::shakeY < 0.01) {
+        PuaraGestures::shakeY = 0;
+      }
+  }
+  if (acclAbsZ > 0.1) {
+    PuaraGestures::shakeZ = leakyIntegrator(acclAbsZ/10, PuaraGestures::shakeZ, 0.6, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerZ);
+  } else {
+    PuaraGestures::shakeZ = leakyIntegrator(0, PuaraGestures::shakeZ, 0.3, PuaraGestures::leakyShakeFreq, PuaraGestures::leakyShakeTimerZ);
+    if (PuaraGestures::shakeZ < 0.01) {
+        PuaraGestures::shakeZ = 0;
+      }
+  }
+  // Instrument jab
+  if (*maxX-*minX > PuaraGestures::jabXThreshold) {
+    if (*maxX >= 0 && *minX >= 0) {
+      PuaraGestures::jabX = *maxX - *minX;
+    } else if (*maxX < 0 && *minX < 0) {
+      PuaraGestures::jabX = *minX - *maxX;
+    } else {
+    PuaraGestures::jabX = *minX - *maxX;
+    }
+  }
+  if (*maxY-*minY > PuaraGestures::jabYThreshold) {
+    if (*maxY >= 0 && *minY >= 0) {
+      PuaraGestures::jabY = *maxY - *minY;
+    } else if (*maxY < 0 && *minY < 0) {
+      PuaraGestures::jabY = *minY - *maxY;
+    } else {
+    PuaraGestures::jabY = *maxY - *minY;
+    }
+  }
+  if (*maxZ-*minZ > PuaraGestures::jabZThreshold) {
+    if (*maxZ >= 0 && *minZ >= 0) {
+      PuaraGestures::jabZ = *maxZ - *minZ;
+    } else if (*maxZ < 0 && *minZ < 0) {
+      PuaraGestures::jabZ = *minZ - *maxZ;
+    } else {
+    PuaraGestures::jabZ = *maxZ - *minZ;
+    }
   }
 }
 
@@ -76,37 +151,97 @@ void PuaraGestures::updateOrientation() {
   orientation.update(0.01); // Weight of 0.01 towards previous orientation
 }
 
+void PuaraGestures::setCalibrationParameters(calibrationParameters calParams) {
+  // Save calibration parameters to class
+  // Magnetometer Cal
+  std::copy(std::begin(sx), std::end(sx), std::begin(calParams.sx));
+  std::copy(std::begin(sy), std::end(sy), std::begin(calParams.sy));
+  std::copy(std::begin(sz), std::end(sz), std::begin(calParams.sz));
+  std::copy(std::begin(h), std::end(h), std::begin(calParams.h));
+  // Accel Cal
+  std::copy(std::begin(accel_zerog), std::end(accel_zerog), std::begin(calParams.accel_zerog));
+  // Gyro Cal
+  std::copy(std::begin(gyro_zerorate), std::end(gyro_zerorate), std::begin(calParams.gyro_zerorate));
+}
+
 void PuaraGestures::setAccelerometerValues(float accelX, float accelY, float accelZ) {
-  orientation.setAccelerometerValues(accelX, accelY, accelZ);
-  this->accelX = accelX;
-  this->accelY = accelY;
-  this->accelZ = accelZ;
+  // Calibrate accelerometer
+  calibrateAccelerometer(accelX, accelY, accelZ);
+
+  // Save calibrate values for sensor fusion and puara gestures
+  orientation.setAccelerometerValues(accelCal[0], accelCal[1], accelCal[2]);
+  this->accelX = accelCal[0];
+  this->accelY = accelCal[1];
+  this->accelZ = accelCal[2];
+
+  // Add accl data
+  acclBuffers[0].push_back(accelX);
+  acclBuffers[1].push_back(accelY);
+  acclBuffers[2].push_back(accelZ);
+
+  // clear out old data
+  if (acclBuffers[0].size() > PuaraGestures::BUFFER_SIZE) {
+    acclBuffers[0].pop_front();
+    acclBuffers[1].pop_front();
+    acclBuffers[2].pop_front();
+  }
 }
 
 void PuaraGestures::setGyroscopeValues(float gyroX, float gyroY, float gyroZ) {   
   static long then = esp_timer_get_time();
   long now = esp_timer_get_time();
-  orientation.setGyroscopeDegreeValues(gyroX, gyroY, gyroZ, (now - then) * 0.000001);
+  // Calibrate Gyroscope
+  calibrateGyroscope(gyroX, gyroY, gyroZ);
+
+  orientation.setGyroscopeDegreeValues(gyroCal[0], gyroCal[1], gyroCal[2], (now - then) * 0.000001);
   then = now;     
-  gyroBuffers[0].push_back(gyroX);
-  gyroBuffers[1].push_back(gyroY);
-  gyroBuffers[2].push_back(gyroZ);
+  gyroBuffers[0].push_back(gyroCal[0]);
+  gyroBuffers[1].push_back(gyroCal[1]);
+  gyroBuffers[2].push_back(gyroCal[2]);
   if (gyroBuffers[0].size() > PuaraGestures::BUFFER_SIZE) {
     gyroBuffers[0].pop_front();
     gyroBuffers[1].pop_front();
     gyroBuffers[2].pop_front();
   }
-  this->gyroX = gyroX;
-  this->gyroY = gyroY;
-  this->gyroZ = gyroZ;
+  this->gyroX = gyroCal[0];
+  this->gyroY = gyroCal[1];
+  this->gyroZ = gyroCal[2];
 }
 
 void PuaraGestures::setMagnetometerValues(float magX, float magY, float magZ) {
-  orientation.setMagnetometerValues(magX, magY, magZ);
-  this->magX = magX;
-  this->magY = magY;
-  this->magZ = magZ;
+  // Calibrate magnetometer, sensor fusion code already assumes calibrate magnetometer, hence calibration occurs here
+  calibrateMagnetometer(magX, magY, magZ);
+
+  // Set magnetometer values for sensor fusion
+  orientation.setMagnetometerValues(magCal[0], magCal[1], magCal[2]);
+
+  // Save to puara gestures
+  this->magX = magCal[0];
+  this->magY = magCal[1];
+  this->magZ = magCal[2];
 }
+
+void PuaraGestures::calibrateMagnetometer(float magX, float magY, float magZ) {
+  // Calibrate magnetometer
+  magCal[0] = sx[0]*(magX-h[0]) + sx[1]*(magX-h[0]) + sx[2]*(magX-h[0]);
+  magCal[1] = sy[0]*(magY-h[1]) + sy[1]*(magY-h[1]) + sy[2]*(magY-h[1]);
+  magCal[2] = sz[0]*(magZ-h[2]) + sz[1]*(magZ-h[2]) + sz[2]*(magZ-h[2]);
+}
+
+void PuaraGestures::calibrateAccelerometer(float accelX, float accelY, float accelZ) {
+  // Calibrate accelerometer
+  accelCal[0] = accelX - accel_zerog[0];
+  accelCal[1] = accelY - accel_zerog[1];
+  accelCal[2] = accelZ - accel_zerog[2];
+}
+
+void PuaraGestures::calibrateGyroscope(float gyroX, float gyroY, float gyroZ) {
+  // Calibrate magnetometer
+  gyroCal[0] = gyroX - gyro_zerorate[0];
+  gyroCal[1] = gyroY - gyro_zerorate[1];
+  gyroCal[2] = gyroZ - gyro_zerorate[2];
+}
+
 
 // Simple leaky integrator implementation
 // Create a unsigned long global variable for time counter for each leak implementation (timer)

@@ -15,6 +15,21 @@
 #include "esp_timer.h"
 #include "IMU_Sensor_Fusion/imu_orientation.h"
 
+// Calibration parameter input structure
+struct calibrationParameters {
+    // Accelerometer Parameters
+    float accel_zerog[3];
+
+    // Gyroscope Parameters
+    float gyro_zerorate[3];
+    
+    // Magnetometer Parameters
+    float sx[3];
+    float sy[3];
+    float sz[3];
+    float h[3];
+};
+
 class PuaraGestures {
     
     private:
@@ -25,6 +40,7 @@ class PuaraGestures {
         float accelY;
         float accelZ;
         std::deque<float> gyroBuffers[3]; // Need buffer to compute shake/jab
+        std::deque<float> acclBuffers[3]; // Need buffer to compute shake/jab
         float gyroX;
         float gyroY;
         float gyroZ;
@@ -42,8 +58,8 @@ class PuaraGestures {
         float jabX;
         float jabY;
         float jabZ;
-        int jabThreshold = 10;
         void updateJabShake();
+        void updateJabShakeAccl();
         // Orientation
         const float DECLINATION = -14.14; // Declination at Montreal on 2020-03-12
         IMU_Orientation orientation;
@@ -84,6 +100,9 @@ class PuaraGestures {
         unsigned int buttonThreshold = 1;
 
     public:
+        int jabXThreshold = 5;
+        int jabYThreshold = 5;
+        int jabZThreshold = 5;
         float leakyIntegrator (float reading, float old_value, float leak, int frequency, unsigned long& timer);
         
         // Inertial measurement updates (accelerometer, gyroscope, magnetometer)
@@ -129,7 +148,28 @@ class PuaraGestures {
         // Orientation quaternion and euler values
         IMU_Orientation::Quaternion getOrientationQuaternion();
         IMU_Orientation::Euler getOrientationEuler();
-        
+
+        // Calibration Methods
+        void calibrateMagnetometer(float magX, float magY, float magZ);
+        void calibrateAccelerometer(float accelX, float accelY, float accelZ);
+        void calibrateGyroscope(float gyroX, float gyroY, float gyroZ);
+        void setCalibrationParameters(calibrationParameters calParams);
+
+        // Magnetometer Calibration Variables
+        float sx[3] = {0.333, 0.333, 0.333};
+        float sy[3] = {0.333, 0.333, 0.333};
+        float sz[3] = {0.333, 0.333, 0.333};
+        float h[3] = {0,0,0};
+        float magCal[3];
+
+        // Accelerometer Calibration variables
+        float accel_zerog[3] = {0,0,0};
+        float accelCal[3];
+
+        /// Gyroscope Calibration variables
+        float gyro_zerorate[3] = {0,0,0};
+        float gyroCal[3];
+
         // touch array
         void updateTouchArray (int *discrete_touch, int touchSize);
         float touchAll;         // f, 0--1
